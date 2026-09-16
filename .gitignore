@@ -1,22 +1,4 @@
-# Environment files
-.env
-.env.*
-!.env.example
-
-# Python
-__pycache__/
-*.py[cod]
-*.pyo
-*.pyd
-.venv/
-venv/
-
-# OS/editor
-.DS_Store
-Thumbs.db
-.vscode/
-
-# Test / coverage
-.pytest_cache/
-.coverage
-htmlcov/
+   venv/
+   .env
+   chroma_db/
+   __pycache__/
