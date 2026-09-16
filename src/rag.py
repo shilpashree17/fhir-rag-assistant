@@ -1,19 +1,46 @@
-from typing import Any, Dict, List
+'''RAG Steps
+1> Document Loading --> Loading the raw data to the system environment
+2> Preprocessing -> Ensure Data qualify for the model i.e clean data/remove noise
+3> Chunking -> split text into smaller chunks for better processing
+4> Embedding -> convert text chunks into vector representation (numbers) as computer understands only numbers
+5> Vector Storage -> saves the content to vector DB to enable fast semantic search
+6> Retrieval -> Find relavent chuncks based on cosine similarity, fetch data relevant to the user search/query
+7> Generating response through LLM- Generate final natural language response
+'''
+'''chromadb- vector database for storing embeddings
+sentence-transformers- model library for generating embeddings from text'''
 
+import os
+import chromadb
+# from chromadb.utils import embedding_functions
+from fhir_client import get_patient_context
 
-class RAGPipeline:
-    def __init__(self, fhir_client: Any, llm_client: Any):
-        self.fhir_client = fhir_client
-        self.llm_client = llm_client
+'''Set up a path for Chroma Db in project root directory'''
 
-    def build_context(self, patient_id: str) -> Dict[str, Any]:
-        patient = self.fhir_client.get_patient(patient_id)
-        return {"patient": patient}
+BASE_DIR=os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
+CHROMA_DB_PATH=os.path.join(BASE_DIR,"chroma_db")
 
-    def answer_question(self, patient_id: str, question: str) -> str:
-        context = self.build_context(patient_id)
-        prompt = (
-            "You are a clinical assistant. Use the patient context to answer the user question.\n\n"
-            f"Patient context: {context}\n\nUser question: {question}"
-        )
-        return self.llm_client.generate(prompt)
+# Create a persistant client to save data to local directory
+client=chromadb.PersistentClient(path=CHROMA_DB_PATH)
+# embedding_fn = embedding_functions.SentenceTransformerEmbeddingFunction(model_name="all-MiniLM-L6-v2")
+collection=client.get_or_create_collection("patient_records")#,embedding_function=embedding_fn)
+
+def index_patient(patient_id):
+    chunks=get_patient_context(patient_id)
+    # print("***chunks***")
+    # print(chunks)
+    # print("***chunks***")
+    if not chunks:
+        return 0
+    collection.upsert(ids=[f"{patient_id}_{i}" for i in range(len(chunks))],documents=chunks)
+    return len(chunks)
+
+def retrieve(query, k=3):
+    results=collection.query(query_texts=[query],n_results=k)
+    # print(str(results.keys()) + "\n" + str(results.values()))
+    return results['documents'][0] if results['documents'] else []
+
+if __name__ == "__main__":
+    n= index_patient("2d95f315-808c-4b67-836b-e56bdba9dd21")
+    print(f"Indexed {n} chunks for patient ")
+    print(retrieve("diabetes"))
